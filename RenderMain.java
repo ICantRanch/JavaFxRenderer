@@ -9,6 +9,8 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Slider;
 import javafx.scene.image.Image;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.*;
@@ -20,8 +22,10 @@ import java.util.*;
 
 public class RenderMain extends Application {
 
-    int WIN_WIDTH = 500;
-    int WIN_HEIGHT = 500;
+    int CAN_WIDTH = 500;
+    int CAN_HEIGHT = 500;
+    double stageWidth;
+    double stageHeight;
     Canvas c;
     GraphicsContext gc;
     Timer t;
@@ -38,16 +42,16 @@ public class RenderMain extends Application {
     Rotate pRotate = new Rotate(0,new javafx.geometry.Point3D(1,0,0));
 
     ArrayList<Triangle> tris;
-    Image img;
-
+    WritableImage img;
     public void start(Stage stage) {
 
         BorderPane root = new BorderPane();
         Scene scene = new Scene(root);
         center = new Group();
-        root.setCenter(center);
-        c = new Canvas(WIN_WIDTH, WIN_HEIGHT);
-
+        c = new Canvas(CAN_WIDTH, CAN_HEIGHT);
+        gc = c.getGraphicsContext2D();
+		root.setCenter(c);
+		
         lR = new Slider(-180,180,0);
         uD = new Slider(-90,90,0);
         uD.setOrientation(Orientation.VERTICAL);
@@ -85,9 +89,9 @@ public class RenderMain extends Application {
             pArr[i].getElements().add(new LineTo(tris.get(i).getV2().getX(),tris.get(i).getV2().getY()));
             pArr[i].getElements().add(new LineTo(tris.get(i).getV3().getX(),tris.get(i).getV3().getY()));
             pArr[i].getElements().add(new ClosePath());
-            pArr[i].setFill(tris.get(i).getColor());
+            //pArr[i].setFill(tris.get(i).getColor());
 
-            center.getChildren().add(pArr[i]);
+            //center.getChildren().add(pArr[i]);
         }
         ci = new Circle(0,0,2);
         center.getChildren().add(ci);
@@ -97,8 +101,9 @@ public class RenderMain extends Application {
         //rotate();
         paint();
 
-        stage.setHeight(WIN_HEIGHT);
-        stage.setWidth(WIN_WIDTH);
+        //stage.setHeight(root.getHeight());
+        //stage.setWidth(root.getWidth());
+        System.out.println(stageWidth);
         stage.setTitle("Renderer");
         stage.setScene(scene);
         stage.show();
@@ -143,6 +148,9 @@ public class RenderMain extends Application {
         double[][] newOrder = new double[tris.size()][2];
         double average;
         double sum;
+        img = new WritableImage((int)c.getWidth(),(int)c.getHeight());
+        PixelWriter pw = img.getPixelWriter();
+        gc.clearRect(0, 0, c.getWidth(), c.getHeight());
 
         for (int i = 0; i < tris.size(); i++) {
 
@@ -150,12 +158,28 @@ public class RenderMain extends Application {
             Point3D v1 = trans.transform(tris.get(i).getV1());
             Point3D v2 = trans.transform(tris.get(i).getV2());
             Point3D v3 = trans.transform(tris.get(i).getV3());
+            
 
             sum = v1.getZ() + v2.getZ() + v3.getZ();
             average = sum/3;
             newOrder[i] = new double[]{average, i};
-
+            
+            v1 = new Point3D(v1.getX() + c.getWidth() / 2, v1.getY() + c.getHeight() / 2, v1.getZ());
+            v2 = new Point3D(v2.getX() + c.getWidth() / 2, v2.getY() + c.getHeight() / 2, v2.getZ());
+            v3 = new Point3D(v3.getX() + c.getWidth() / 2, v3.getY() + c.getHeight() / 2, v3.getZ());
+            
+            
+            
+            int minX = (int)Math.max(0, Math.ceil(Math.min(v1.getX(), Math.min(v2.getX(), v3.getX()))));
+            int maxX = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getX(), Math.max(v2.getX(), v3.getX()))));
+            int minY = (int)Math.max(0, Math.ceil(Math.min(v1.getY(), Math.min(v2.getY(), v3.getY()))));
+            int maxY = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getX(), Math.max(v2.getX(), v3.getX()))));
+            System.out.printf("Min/Max X:%d,%d  y:%d,%d\n", minX, maxX, minY, maxY);
+            
             Path p = pArr[i];
+            
+            //Convert to Polygon instead to use the contains method
+            
             p.getElements().clear();
 
             p.getElements().add(new MoveTo(v1.getX(),v1.getY()));
@@ -163,16 +187,25 @@ public class RenderMain extends Application {
             p.getElements().add(new LineTo(v3.getX(),v3.getY()));
             p.getElements().add(new ClosePath());
             //p.getTransforms().addAll(hRotate,pRotate);
-
-            System.out.println(v1);
+            
+            for (int j = minY; j < maxY; j++) {
+				for (int j2 = minX; j2 < maxX; j2++) {
+					if(p.contains(j, j2)) {
+						//System.out.println("Coloring");
+						pw.setColor(j, j2, tris.get(i).getColor());
+					}	
+				}
+			}
+    
         }
-        System.out.println(Arrays.deepToString(newOrder));
+        /*
         Arrays.sort(newOrder, Comparator.comparingDouble(o -> o[0]));
-        System.out.println(Arrays.deepToString(newOrder));
         for (int i = 0; i < newOrder.length; i++) {
             pArr[(int)newOrder[i][1]].toFront();
         }
         ci.toFront();
+        */
+        gc.drawImage(img, 0, 0);
     }
 
     public static void main(String[] args) {
