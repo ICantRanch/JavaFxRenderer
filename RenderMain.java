@@ -8,7 +8,6 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Slider;
-import javafx.scene.image.Image;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
@@ -34,7 +33,8 @@ public class RenderMain extends Application {
     Slider uD;
     Group center;
     Circle ci;
-    Path[] pArr;
+    Polygon[] pArr;
+    double[][] zBuffer;
     double fakeHeading = 0;
     double fakePitch = 0;
     boolean isTimerRun =false;
@@ -51,6 +51,7 @@ public class RenderMain extends Application {
         c = new Canvas(CAN_WIDTH, CAN_HEIGHT);
         gc = c.getGraphicsContext2D();
 		root.setCenter(c);
+		zBuffer = new double[(int) c.getHeight()][(int) c.getWidth()];
 		
         lR = new Slider(-180,180,0);
         uD = new Slider(-90,90,0);
@@ -60,8 +61,6 @@ public class RenderMain extends Application {
 
         lR.valueProperty().addListener((observableValue, oldNum, newNum) -> paint());
         uD.valueProperty().addListener((observableValue, number, t1) -> paint());
-
-
 
         tris = new ArrayList<Triangle>();
         tris.add(new Triangle(new Point3D(100, 100, 100),
@@ -81,17 +80,13 @@ public class RenderMain extends Application {
                 new Point3D(-100, -100, 100),
                 Color.MEDIUMBLUE));
 
-        pArr = new Path[tris.size()];
+        pArr = new Polygon[tris.size()];
         for (int i = 0; i < pArr.length; i++) {
-            pArr[i] = new Path();
-
-            pArr[i].getElements().add(new MoveTo(tris.get(i).getV1().getX(),tris.get(i).getV1().getY()));
-            pArr[i].getElements().add(new LineTo(tris.get(i).getV2().getX(),tris.get(i).getV2().getY()));
-            pArr[i].getElements().add(new LineTo(tris.get(i).getV3().getX(),tris.get(i).getV3().getY()));
-            pArr[i].getElements().add(new ClosePath());
-            //pArr[i].setFill(tris.get(i).getColor());
-
-            //center.getChildren().add(pArr[i]);
+            pArr[i] = new Polygon(new double[] {
+            		tris.get(i).getV1().getX(),tris.get(i).getV1().getY(),
+            		tris.get(i).getV2().getX(),tris.get(i).getV2().getY(),
+            		tris.get(i).getV3().getX(),tris.get(i).getV3().getY(),		
+            });
         }
         ci = new Circle(0,0,2);
         center.getChildren().add(ci);
@@ -100,10 +95,6 @@ public class RenderMain extends Application {
 
         //rotate();
         paint();
-
-        //stage.setHeight(root.getHeight());
-        //stage.setWidth(root.getWidth());
-        System.out.println(stageWidth);
         stage.setTitle("Renderer");
         stage.setScene(scene);
         stage.show();
@@ -118,7 +109,6 @@ public class RenderMain extends Application {
     public void rotate() {
 
         tt = new TimerTask() {
-
             @Override
             public void run() {
 
@@ -126,7 +116,6 @@ public class RenderMain extends Application {
                 paint(fakeHeading,fakePitch);
                 fakeHeading += 1.5;
                 fakePitch += 1.5;
-
             }
         };
         t = new Timer();
@@ -142,24 +131,27 @@ public class RenderMain extends Application {
 
     public void paint(double hDegrees, double pDegrees) {
 
-        hRotate.setAngle(-hDegrees);
-        pRotate.setAngle(-pDegrees);
+        hRotate.setAngle(hDegrees);
+        pRotate.setAngle(pDegrees);
         Transform trans = hRotate.createConcatenation(pRotate);
         double[][] newOrder = new double[tris.size()][2];
         double average;
         double sum;
         img = new WritableImage((int)c.getWidth(),(int)c.getHeight());
         PixelWriter pw = img.getPixelWriter();
+        for (int i = 0; i < zBuffer.length; i++) {
+			for (int j = 0; j < zBuffer[i].length; j++) {
+				zBuffer[i][j] = Double.NEGATIVE_INFINITY;
+			}
+		}
         gc.clearRect(0, 0, c.getWidth(), c.getHeight());
 
         for (int i = 0; i < tris.size(); i++) {
-
 
             Point3D v1 = trans.transform(tris.get(i).getV1());
             Point3D v2 = trans.transform(tris.get(i).getV2());
             Point3D v3 = trans.transform(tris.get(i).getV3());
             
-
             sum = v1.getZ() + v2.getZ() + v3.getZ();
             average = sum/3;
             newOrder[i] = new double[]{average, i};
@@ -168,43 +160,60 @@ public class RenderMain extends Application {
             v2 = new Point3D(v2.getX() + c.getWidth() / 2, v2.getY() + c.getHeight() / 2, v2.getZ());
             v3 = new Point3D(v3.getX() + c.getWidth() / 2, v3.getY() + c.getHeight() / 2, v3.getZ());
             
+            Point3D v12 = v1.subtract(v2);
+            Point3D v13 = v1.subtract(v3);
+            Point3D norm = v12.crossProduct(v13);
+            norm = norm.normalize();
+            double shade = Math.abs(norm.getZ());
+            
             
             
             int minX = (int)Math.max(0, Math.ceil(Math.min(v1.getX(), Math.min(v2.getX(), v3.getX()))));
             int maxX = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getX(), Math.max(v2.getX(), v3.getX()))));
             int minY = (int)Math.max(0, Math.ceil(Math.min(v1.getY(), Math.min(v2.getY(), v3.getY()))));
-            int maxY = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getX(), Math.max(v2.getX(), v3.getX()))));
-            System.out.printf("Min/Max X:%d,%d  y:%d,%d\n", minX, maxX, minY, maxY);
+            int maxY = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getY(), Math.max(v2.getY(), v3.getY()))));
             
-            Path p = pArr[i];
+            Polygon p = pArr[i];
             
-            //Convert to Polygon instead to use the contains method
+            p.getPoints().setAll(new Double[] {
+            		v1.getX(),v1.getY(),
+            		v2.getX(),v2.getY(),
+            		v3.getX(),v3.getY(),
+            });
             
-            p.getElements().clear();
-
-            p.getElements().add(new MoveTo(v1.getX(),v1.getY()));
-            p.getElements().add(new LineTo(v2.getX(),v2.getY()));
-            p.getElements().add(new LineTo(v3.getX(),v3.getY()));
-            p.getElements().add(new ClosePath());
-            //p.getTransforms().addAll(hRotate,pRotate);
+            double triangleArea =
+            	       (v1.getY() - v3.getY()) * (v2.getX() - v3.getX()) + (v2.getY() - v3.getY()) * (v3.getX() - v1.getX());
             
-            for (int j = minY; j < maxY; j++) {
-				for (int j2 = minX; j2 < maxX; j2++) {
-					if(p.contains(j, j2)) {
-						//System.out.println("Coloring");
-						pw.setColor(j, j2, tris.get(i).getColor());
-					}	
-				}
-			}
-    
+            for (int x = minX; x < maxX; x++) {
+            	for (int y = minY; y < maxY; y++) {
+            		double b1 = 
+            				((y - v3.getY()) * (v2.getX() - v3.getX()) + (v2.getY() - v3.getY()) * (v3.getX() - x)) / triangleArea;
+            		double b2 =
+            				((y - v1.getY()) * (v3.getX() - v1.getX()) + (v3.getY() - v1.getY()) * (v1.getX() - x)) / triangleArea;
+            		double b3 =
+            				((y - v2.getY()) * (v1.getX() - v2.getX()) + (v1.getY() - v2.getY()) * (v2.getX() - x)) / triangleArea;
+            		if (b1 >= 0 && b1 <= 1 && b2 >= 0 && b2 <= 1 && b3 >= 0 && b3 <= 1) {
+            			
+            			double depth = b1 * v1.getZ() + b2 * v2.getZ() + b3 * v3.getZ();
+            			if(depth > zBuffer[y][x]) {
+            				
+            				zBuffer[y][x] = depth;
+            				Color temp = tris.get(i).getColor();
+            				
+            				double redLin = Math.pow(temp.getRed(), 2.4) * shade;
+            				double greenLin = Math.pow(temp.getGreen(), 2.4) * shade;
+            				double blueLin = Math.pow(temp.getBlue(), 2.4) * shade;
+            				
+            				double red = Math.pow(redLin, 1/2.4);
+            				double green = Math.pow(greenLin, 1/2.4);
+            				double blue =  Math.pow(blueLin, 1/2.4);
+            				
+            				pw.setColor(x, y, new Color(red, green, blue, 1));
+            			}	
+            		}
+            	}	
+            }
         }
-        /*
-        Arrays.sort(newOrder, Comparator.comparingDouble(o -> o[0]));
-        for (int i = 0; i < newOrder.length; i++) {
-            pArr[(int)newOrder[i][1]].toFront();
-        }
-        ci.toFront();
-        */
         gc.drawImage(img, 0, 0);
     }
 
