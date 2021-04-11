@@ -9,7 +9,6 @@ public class Triangle {
     Point3D v2;
     Point3D v3;
     Color color;
-    int numVertex;
 
 
 
@@ -18,13 +17,6 @@ public class Triangle {
         this.v2 = v2;
         this.v3 = v3;
         this.color = color;
-        int numVertex = 3;
-    }
-
-    public int getNumVertex() { return numVertex; }
-
-    public Point3D[] getVertices(){
-        return new Point3D[]{v1,v2,v3};
     }
 
     public Point3D getV1() {
