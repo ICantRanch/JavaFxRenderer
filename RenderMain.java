@@ -91,8 +91,6 @@ public class RenderMain extends Application {
         ci = new Circle(0,0,2);
         center.getChildren().add(ci);
 
-        System.out.println(hRotate.getAxis());
-
         //rotate();
         paint();
         stage.setTitle("Renderer");
@@ -133,7 +131,7 @@ public class RenderMain extends Application {
 
         hRotate.setAngle(hDegrees);
         pRotate.setAngle(pDegrees);
-        Transform trans = hRotate.createConcatenation(pRotate);
+        //Transform trans = hRotate.createConcatenation(pRotate);
         double[][] newOrder = new double[tris.size()][2];
         double average;
         double sum;
@@ -148,9 +146,12 @@ public class RenderMain extends Application {
 
         for (int i = 0; i < tris.size(); i++) {
 
-            Point3D v1 = trans.transform(tris.get(i).getV1());
-            Point3D v2 = trans.transform(tris.get(i).getV2());
-            Point3D v3 = trans.transform(tris.get(i).getV3());
+            Point3D v1 = hRotate.transform(tris.get(i).getV1());
+            v1 = pRotate.transform(v1);
+            Point3D v2 = hRotate.transform(tris.get(i).getV2());
+            v2 = pRotate.transform(v2);
+            Point3D v3 = hRotate.transform(tris.get(i).getV3());
+            v3 = pRotate.transform(v3);
             
             sum = v1.getZ() + v2.getZ() + v3.getZ();
             average = sum/3;
