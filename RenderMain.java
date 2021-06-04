@@ -14,7 +14,6 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.*;
 import javafx.scene.transform.Rotate;
-import javafx.scene.transform.Transform;
 import javafx.stage.Stage;
 
 import java.util.*;
@@ -79,6 +78,12 @@ public class RenderMain extends Application {
                 new Point3D(100, -100, -100),
                 new Point3D(-100, -100, 100),
                 Color.MEDIUMBLUE));
+        
+        for (int i = 0; i < 3; i++) {
+			tris = (ArrayList<Triangle>) inflate(tris);
+		}
+        
+        
 
         pArr = new Polygon[tris.size()];
         for (int i = 0; i < pArr.length; i++) {
@@ -92,6 +97,7 @@ public class RenderMain extends Application {
         center.getChildren().add(ci);
 
         //rotate();
+        
         paint();
         stage.setTitle("Renderer");
         stage.setScene(scene);
@@ -113,12 +119,50 @@ public class RenderMain extends Application {
                 isTimerRun = true;
                 paint(fakeHeading,fakePitch);
                 fakeHeading += 1.5;
-                fakePitch += 1.5;
+                fakePitch += 0.75;
             }
         };
         t = new Timer();
         t.schedule(tt, 0, 34);
     }
+    
+    public static List<Triangle> inflate(List<Triangle> tris){
+		
+    	List<Triangle> result = new ArrayList<>();
+    	
+    	for (Triangle tri : tris) {
+    		Point3D m1 =
+    				new Point3D((tri.v1.getX() + tri.v2.getX())/2, (tri.v1.getY() + tri.v2.getY())/2, (tri.v1.getZ() + tri.v2.getZ())/2);
+    		Point3D m2 =
+    				new Point3D((tri.v2.getX() + tri.v3.getX())/2, (tri.v2.getY() + tri.v3.getY())/2, (tri.v2.getZ() + tri.v3.getZ())/2);
+    		Point3D m3 =
+    				new Point3D((tri.v1.getX() + tri.v3.getX())/2, (tri.v1.getY() + tri.v3.getY())/2, (tri.v1.getZ() + tri.v3.getZ())/2);
+    		
+    		result.add(new Triangle(tri.v1, m1, m3, tri.color));
+    		result.add(new Triangle(tri.v2, m1, m2, tri.color));
+    		result.add(new Triangle(tri.v3, m2, m3, tri.color));
+    		result.add(new Triangle(m1, m2, m3, tri.color));
+		}
+    	
+    	//Find out why it isn't inflating
+    	
+    	
+    	
+    	for (Triangle t : result) {
+                double b = Math.sqrt(t.v1.getX() * t.v1.getX() + t.v1.getY() * t.v1.getY() + t.v1.getZ() * t.v1.getZ()) / Math.sqrt(30000);
+                t.setV1(new Point3D(t.v1.getX()/b, t.v1.getY()/b, t.v1.getZ()/b));
+                
+                b = Math.sqrt(t.v2.getX() * t.v2.getX() + t.v2.getY() * t.v2.getY() + t.v2.getZ() * t.v2.getZ()) / Math.sqrt(30000);
+                t.setV2(new Point3D(t.v2.getX()/b, t.v2.getY()/b, t.v2.getZ()/b));
+                
+                b = Math.sqrt(t.v3.getX() * t.v3.getX() + t.v3.getY() * t.v3.getY() + t.v3.getZ() * t.v3.getZ()) / Math.sqrt(30000);
+                t.setV3(new Point3D(t.v3.getX()/b, t.v3.getY()/b, t.v3.getZ()/b));
+        }
+        
+    	
+    	return result;
+    }
+    
 
     public void paint() {
 
