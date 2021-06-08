@@ -32,16 +32,20 @@ public class RenderMain extends Application {
     Slider uD;
     Group center;
     Circle ci;
-    Polygon[] pArr;
     double[][] zBuffer;
     double fakeHeading = 0;
     double fakePitch = 0;
-    boolean isTimerRun =false;
+    boolean isTimerRun = false;
     Rotate hRotate = new Rotate(0, new javafx.geometry.Point3D(0,1,0));
     Rotate pRotate = new Rotate(0,new javafx.geometry.Point3D(1,0,0));
 
     ArrayList<Triangle> tris;
     WritableImage img;
+    
+    double hDeg, pDeg;
+    
+    
+    
     public void start(Stage stage) {
 
         BorderPane root = new BorderPane();
@@ -52,6 +56,8 @@ public class RenderMain extends Application {
 		root.setCenter(c);
 		zBuffer = new double[(int) c.getHeight()][(int) c.getWidth()];
 		
+		hDeg = pDeg = 0;
+		
         lR = new Slider(-180,180,0);
         uD = new Slider(-90,90,0);
         uD.setOrientation(Orientation.VERTICAL);
@@ -60,6 +66,8 @@ public class RenderMain extends Application {
 
         lR.valueProperty().addListener((observableValue, oldNum, newNum) -> paint());
         uD.valueProperty().addListener((observableValue, number, t1) -> paint());
+        
+        root.setOnDragDetected(type name = new type(););
 
         tris = new ArrayList<Triangle>();
         tris.add(new Triangle(new Point3D(100, 100, 100),
@@ -79,34 +87,25 @@ public class RenderMain extends Application {
                 new Point3D(-100, -100, 100),
                 Color.MEDIUMBLUE));
         
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 0; i++) {
 			tris = (ArrayList<Triangle>) inflate(tris);
 		}
-        
-        
 
-        pArr = new Polygon[tris.size()];
-        for (int i = 0; i < pArr.length; i++) {
-            pArr[i] = new Polygon(new double[] {
-            		tris.get(i).getV1().getX(),tris.get(i).getV1().getY(),
-            		tris.get(i).getV2().getX(),tris.get(i).getV2().getY(),
-            		tris.get(i).getV3().getX(),tris.get(i).getV3().getY(),		
-            });
-        }
         ci = new Circle(0,0,2);
         center.getChildren().add(ci);
-
-        //rotate();
         
         paint();
+        
         stage.setTitle("Renderer");
         stage.setScene(scene);
         stage.show();
 
+        //rotate();
+        
         stage.setOnCloseRequest(event ->{
-            if(isTimerRun){
-                t.cancel();
-            }
+        	if(isTimerRun){
+        		t.cancel();
+        	}
         });
     }
 
@@ -117,9 +116,7 @@ public class RenderMain extends Application {
             public void run() {
 
                 isTimerRun = true;
-                paint(fakeHeading,fakePitch);
-                fakeHeading += 1.5;
-                fakePitch += 0.75;
+                paintInc(1.5, 0.75);
             }
         };
         t = new Timer();
@@ -143,11 +140,7 @@ public class RenderMain extends Application {
     		result.add(new Triangle(tri.v3, m2, m3, tri.color));
     		result.add(new Triangle(m1, m2, m3, tri.color));
 		}
-    	
-    	//Find out why it isn't inflating
-    	
-    	
-    	
+
     	for (Triangle t : result) {
                 double b = Math.sqrt(t.v1.getX() * t.v1.getX() + t.v1.getY() * t.v1.getY() + t.v1.getZ() * t.v1.getZ()) / Math.sqrt(30000);
                 t.setV1(new Point3D(t.v1.getX()/b, t.v1.getY()/b, t.v1.getZ()/b));
@@ -158,8 +151,6 @@ public class RenderMain extends Application {
                 b = Math.sqrt(t.v3.getX() * t.v3.getX() + t.v3.getY() * t.v3.getY() + t.v3.getZ() * t.v3.getZ()) / Math.sqrt(30000);
                 t.setV3(new Point3D(t.v3.getX()/b, t.v3.getY()/b, t.v3.getZ()/b));
         }
-        
-    	
     	return result;
     }
     
@@ -170,15 +161,21 @@ public class RenderMain extends Application {
         double pitch = uD.getValue();
         paint(heading,pitch);
     }
+    
+    public void paintInc(double hDegrees, double pDegrees) {
+    	
+    	paint(hDeg + hDegrees, pDeg + pDegrees);
+    	
+    }
 
     public void paint(double hDegrees, double pDegrees) {
+    	
+    	hDeg = hDegrees;
+    	pDeg = pDegrees;
 
         hRotate.setAngle(hDegrees);
         pRotate.setAngle(pDegrees);
-        //Transform trans = hRotate.createConcatenation(pRotate);
-        double[][] newOrder = new double[tris.size()][2];
-        double average;
-        double sum;
+        
         img = new WritableImage((int)c.getWidth(),(int)c.getHeight());
         PixelWriter pw = img.getPixelWriter();
         for (int i = 0; i < zBuffer.length; i++) {
@@ -197,9 +194,6 @@ public class RenderMain extends Application {
             Point3D v3 = hRotate.transform(tris.get(i).getV3());
             v3 = pRotate.transform(v3);
             
-            sum = v1.getZ() + v2.getZ() + v3.getZ();
-            average = sum/3;
-            newOrder[i] = new double[]{average, i};
             
             v1 = new Point3D(v1.getX() + c.getWidth() / 2, v1.getY() + c.getHeight() / 2, v1.getZ());
             v2 = new Point3D(v2.getX() + c.getWidth() / 2, v2.getY() + c.getHeight() / 2, v2.getZ());
@@ -210,21 +204,12 @@ public class RenderMain extends Application {
             Point3D norm = v12.crossProduct(v13);
             norm = norm.normalize();
             double shade = Math.abs(norm.getZ());
-            
-            
+
             
             int minX = (int)Math.max(0, Math.ceil(Math.min(v1.getX(), Math.min(v2.getX(), v3.getX()))));
             int maxX = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getX(), Math.max(v2.getX(), v3.getX()))));
             int minY = (int)Math.max(0, Math.ceil(Math.min(v1.getY(), Math.min(v2.getY(), v3.getY()))));
             int maxY = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getY(), Math.max(v2.getY(), v3.getY()))));
-            
-            Polygon p = pArr[i];
-            
-            p.getPoints().setAll(new Double[] {
-            		v1.getX(),v1.getY(),
-            		v2.getX(),v2.getY(),
-            		v3.getX(),v3.getY(),
-            });
             
             double triangleArea =
             	       (v1.getY() - v3.getY()) * (v2.getX() - v3.getX()) + (v2.getY() - v3.getY()) * (v3.getX() - v1.getX());
@@ -243,6 +228,7 @@ public class RenderMain extends Application {
             			if(depth > zBuffer[y][x]) {
             				
             				zBuffer[y][x] = depth;
+            				
             				Color temp = tris.get(i).getColor();
             				
             				double redLin = Math.pow(temp.getRed(), 2.4) * shade;
