@@ -44,6 +44,8 @@ public class RenderMain extends Application {
     
     double hDeg, pDeg;
     
+    double mousePrevX, mousePrevY;
+    
     
     
     public void start(Stage stage) {
@@ -59,7 +61,7 @@ public class RenderMain extends Application {
 		hDeg = pDeg = 0;
 		
         lR = new Slider(-180,180,0);
-        uD = new Slider(-90,90,0);
+        uD = new Slider(-180,180,0);
         uD.setOrientation(Orientation.VERTICAL);
         root.setBottom(lR);
         root.setRight(uD);
@@ -67,7 +69,40 @@ public class RenderMain extends Application {
         lR.valueProperty().addListener((observableValue, oldNum, newNum) -> paint());
         uD.valueProperty().addListener((observableValue, number, t1) -> paint());
         
-        root.setOnDragDetected(type name = new type(););
+        
+        //Try the Drag_Over event type to drag the render with the mouse
+        
+        
+        /*
+        root.setOnDragDetected((MouseDragEvent event) ->{
+        	
+        });
+        */
+        
+        root.setOnMousePressed(m->{
+        	
+        	//System.out.println("Entered");
+        	
+        	mousePrevX = m.getSceneX();
+        	mousePrevY = m.getSceneY();
+        	
+        });
+        
+        
+        root.setOnMouseDragged(m-> {
+        	
+        	//System.out.println("Dragging");
+        	
+        	
+        	//System.out.println(m.getSceneX());
+        	
+        	paintInc((m.getSceneX()-mousePrevX)*(360/scene.getWidth()),-(m.getSceneY()-mousePrevY)*(360/scene.getHeight()));
+        	mousePrevX = m.getSceneX();
+        	mousePrevY = m.getSceneY();
+        	
+        });
+        
+        
 
         tris = new ArrayList<Triangle>();
         tris.add(new Triangle(new Point3D(100, 100, 100),
@@ -100,7 +135,7 @@ public class RenderMain extends Application {
         stage.setScene(scene);
         stage.show();
 
-        //rotate();
+        rotate();
         
         stage.setOnCloseRequest(event ->{
         	if(isTimerRun){
@@ -171,10 +206,23 @@ public class RenderMain extends Application {
     public void paint(double hDegrees, double pDegrees) {
     	
     	hDeg = hDegrees;
+    	if(hDeg > 180) {hDeg -= 360;}
+    	else {
+    		if(hDeg < -180) {hDeg += 360;}
+    	}
     	pDeg = pDegrees;
+    	if(pDeg > 180) {pDeg -= 360;}
+    	else {
+    		if(pDeg < -180) {pDeg += 360;}
+    	}
+    	
+    	System.out.printf("hDeg:%f, pDeg:%f\n",hDeg,pDeg);
+    	
+    	//lR.setValue(hDeg);
+    	//uD.setValue(pDeg);
 
-        hRotate.setAngle(hDegrees);
-        pRotate.setAngle(pDegrees);
+        hRotate.setAngle(hDeg);
+        pRotate.setAngle(pDeg);
         
         img = new WritableImage((int)c.getWidth(),(int)c.getHeight());
         PixelWriter pw = img.getPixelWriter();
