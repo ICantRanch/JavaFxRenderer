@@ -66,40 +66,31 @@ public class RenderMain extends Application {
         root.setBottom(lR);
         root.setRight(uD);
 
-        lR.valueProperty().addListener((observableValue, oldNum, newNum) -> paint());
-        uD.valueProperty().addListener((observableValue, number, t1) -> paint());
-        
-        
-        //Try the Drag_Over event type to drag the render with the mouse
-        
-        
-        /*
-        root.setOnDragDetected((MouseDragEvent event) ->{
-        	
+        lR.valueProperty().addListener((observableValue, oldNum, newNum) -> {
+
+        	if(lR.getValue() != hDeg) {
+        		paint();
+        	}
         });
-        */
+        uD.valueProperty().addListener((observableValue, number, t1) -> {
+
+        	if(uD.getValue() != pDeg) {
+        		paint();
+        	}
+        });
         
-        root.setOnMousePressed(m->{
-        	
-        	//System.out.println("Entered");
+        c.setOnMousePressed(m->{
         	
         	mousePrevX = m.getSceneX();
         	mousePrevY = m.getSceneY();
-        	
         });
         
         
-        root.setOnMouseDragged(m-> {
-        	
-        	//System.out.println("Dragging");
-        	
-        	
-        	//System.out.println(m.getSceneX());
+        c.setOnMouseDragged(m-> {
         	
         	paintInc((m.getSceneX()-mousePrevX)*(360/scene.getWidth()),-(m.getSceneY()-mousePrevY)*(360/scene.getHeight()));
         	mousePrevX = m.getSceneX();
         	mousePrevY = m.getSceneY();
-        	
         });
         
         
@@ -218,9 +209,11 @@ public class RenderMain extends Application {
     	
     	System.out.printf("hDeg:%f, pDeg:%f\n",hDeg,pDeg);
     	
-    	//lR.setValue(hDeg);
-    	//uD.setValue(pDeg);
+    	lR.setValue(hDeg);
+    	uD.setValue(pDeg);
 
+    	System.out.printf(" 2   hDeg:%f, pDeg:%f\n",hDeg,pDeg);
+    	
         hRotate.setAngle(hDeg);
         pRotate.setAngle(pDeg);
         
