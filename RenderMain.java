@@ -26,25 +26,25 @@ public class RenderMain extends Application {
     double stageHeight;
     Canvas c;
     GraphicsContext gc;
-    Timer t;
-    TimerTask tt;
+    Timer t, tm;
+    TimerTask tt, ttm;
     Slider lR;
     Slider uD;
     Group center;
-    Circle ci;
     double[][] zBuffer;
     double fakeHeading = 0;
     double fakePitch = 0;
+    double hDeg, pDeg;
     boolean isTimerRun = false;
+    boolean momTimer = false;
     Rotate hRotate = new Rotate(0, new javafx.geometry.Point3D(0,1,0));
     Rotate pRotate = new Rotate(0,new javafx.geometry.Point3D(1,0,0));
 
     ArrayList<Triangle> tris;
     WritableImage img;
     
-    double hDeg, pDeg;
-    
     double mousePrevX, mousePrevY;
+    double momX, momY;
     
     
     
@@ -66,6 +66,8 @@ public class RenderMain extends Application {
         root.setBottom(lR);
         root.setRight(uD);
 
+        
+        //Slider Listeners
         lR.valueProperty().addListener((observableValue, oldNum, newNum) -> {
 
         	if(lR.getValue() != hDeg) {
@@ -79,22 +81,33 @@ public class RenderMain extends Application {
         	}
         });
         
+        
+        
+        //Drag Listeners
         c.setOnMousePressed(m->{
         	
         	mousePrevX = m.getSceneX();
         	mousePrevY = m.getSceneY();
+        	if(momTimer) {
+        		tm.cancel();
+        	}
         });
-        
-        
         c.setOnMouseDragged(m-> {
         	
-        	paintInc((m.getSceneX()-mousePrevX)*(360/scene.getWidth()),-(m.getSceneY()-mousePrevY)*(360/scene.getHeight()));
+        	momX = (m.getSceneX()-mousePrevX)*(360/scene.getWidth());
+        	momY = -(m.getSceneY()-mousePrevY)*(360/scene.getHeight());
+        	paintInc(momX , momY);
         	mousePrevX = m.getSceneX();
         	mousePrevY = m.getSceneY();
         });
-        
+        c.setOnMouseReleased(m->{
+        	
+        	System.out.println("Exited");
+        	rotateMom(0.96);
+        });
         
 
+        //Reference Points for Initial Triangle
         tris = new ArrayList<Triangle>();
         tris.add(new Triangle(new Point3D(100, 100, 100),
                 new Point3D(-100, -100, 100),
@@ -113,12 +126,10 @@ public class RenderMain extends Application {
                 new Point3D(-100, -100, 100),
                 Color.MEDIUMBLUE));
         
+        //Inflation
         for (int i = 0; i < 0; i++) {
 			tris = (ArrayList<Triangle>) inflate(tris);
 		}
-
-        ci = new Circle(0,0,2);
-        center.getChildren().add(ci);
         
         paint();
         
@@ -126,27 +137,50 @@ public class RenderMain extends Application {
         stage.setScene(scene);
         stage.show();
 
-        rotate();
+        //rotate(1.5, 0.75);
         
         stage.setOnCloseRequest(event ->{
         	if(isTimerRun){
         		t.cancel();
         	}
+        	if(momTimer) {
+        		tm.cancel();
+        	}
         });
     }
 
-    public void rotate() {
+    public void rotate(double x, double y) {
 
         tt = new TimerTask() {
             @Override
             public void run() {
 
                 isTimerRun = true;
-                paintInc(1.5, 0.75);
+                paintInc(x, y);
             }
         };
         t = new Timer();
         t.schedule(tt, 0, 34);
+    }
+    
+    public void rotateMom(double dec) {
+    	
+    	ttm = new TimerTask() {
+    		
+    		public void run() {
+    			
+    			momTimer = true;
+    			paintInc(momX, momY);
+    			momX *= dec;
+    			momY *= dec;
+    			
+    			if(Math.abs(momX) <= 0.2 && Math.abs(momY) <= 0.2) {
+    				tm.cancel();
+    			}
+    		}
+    	};
+    	tm = new Timer();
+    	tm.schedule(ttm, 0, 34);
     }
     
     public static List<Triangle> inflate(List<Triangle> tris){
@@ -183,19 +217,24 @@ public class RenderMain extends Application {
 
     public void paint() {
 
+    	//Stop any momentum when adjusting rotation with sliders
+    	if(momTimer) {
+    		tm.cancel();
+    	}	
         double heading = lR.getValue();
         double pitch = uD.getValue();
         paint(heading,pitch);
     }
     
+    //Adjust rotation incrementally
     public void paintInc(double hDegrees, double pDegrees) {
     	
     	paint(hDeg + hDegrees, pDeg + pDegrees);
-    	
     }
 
+    //Paint scene with rasterization
     public void paint(double hDegrees, double pDegrees) {
-    	
+
     	hDeg = hDegrees;
     	if(hDeg > 180) {hDeg -= 360;}
     	else {
@@ -207,85 +246,80 @@ public class RenderMain extends Application {
     		if(pDeg < -180) {pDeg += 360;}
     	}
     	
-    	System.out.printf("hDeg:%f, pDeg:%f\n",hDeg,pDeg);
-    	
     	lR.setValue(hDeg);
     	uD.setValue(pDeg);
+    	hRotate.setAngle(hDeg);
+    	pRotate.setAngle(pDeg);
 
-    	System.out.printf(" 2   hDeg:%f, pDeg:%f\n",hDeg,pDeg);
-    	
-        hRotate.setAngle(hDeg);
-        pRotate.setAngle(pDeg);
-        
-        img = new WritableImage((int)c.getWidth(),(int)c.getHeight());
-        PixelWriter pw = img.getPixelWriter();
-        for (int i = 0; i < zBuffer.length; i++) {
-			for (int j = 0; j < zBuffer[i].length; j++) {
-				zBuffer[i][j] = Double.NEGATIVE_INFINITY;
-			}
-		}
-        gc.clearRect(0, 0, c.getWidth(), c.getHeight());
+    	img = new WritableImage((int)c.getWidth(),(int)c.getHeight());
+    	PixelWriter pw = img.getPixelWriter();
+    	for (int i = 0; i < zBuffer.length; i++) {
+    		for (int j = 0; j < zBuffer[i].length; j++) {
+    			zBuffer[i][j] = Double.NEGATIVE_INFINITY;
+    		}
+    	}
+    	gc.clearRect(0, 0, c.getWidth(), c.getHeight());
 
-        for (int i = 0; i < tris.size(); i++) {
+    	for (int i = 0; i < tris.size(); i++) {
 
-            Point3D v1 = hRotate.transform(tris.get(i).getV1());
-            v1 = pRotate.transform(v1);
-            Point3D v2 = hRotate.transform(tris.get(i).getV2());
-            v2 = pRotate.transform(v2);
-            Point3D v3 = hRotate.transform(tris.get(i).getV3());
-            v3 = pRotate.transform(v3);
-            
-            
-            v1 = new Point3D(v1.getX() + c.getWidth() / 2, v1.getY() + c.getHeight() / 2, v1.getZ());
-            v2 = new Point3D(v2.getX() + c.getWidth() / 2, v2.getY() + c.getHeight() / 2, v2.getZ());
-            v3 = new Point3D(v3.getX() + c.getWidth() / 2, v3.getY() + c.getHeight() / 2, v3.getZ());
-            
-            Point3D v12 = v1.subtract(v2);
-            Point3D v13 = v1.subtract(v3);
-            Point3D norm = v12.crossProduct(v13);
-            norm = norm.normalize();
-            double shade = Math.abs(norm.getZ());
+    		Point3D v1 = hRotate.transform(tris.get(i).getV1());
+    		v1 = pRotate.transform(v1);
+    		Point3D v2 = hRotate.transform(tris.get(i).getV2());
+    		v2 = pRotate.transform(v2);
+    		Point3D v3 = hRotate.transform(tris.get(i).getV3());
+    		v3 = pRotate.transform(v3);
 
-            
-            int minX = (int)Math.max(0, Math.ceil(Math.min(v1.getX(), Math.min(v2.getX(), v3.getX()))));
-            int maxX = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getX(), Math.max(v2.getX(), v3.getX()))));
-            int minY = (int)Math.max(0, Math.ceil(Math.min(v1.getY(), Math.min(v2.getY(), v3.getY()))));
-            int maxY = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getY(), Math.max(v2.getY(), v3.getY()))));
-            
-            double triangleArea =
-            	       (v1.getY() - v3.getY()) * (v2.getX() - v3.getX()) + (v2.getY() - v3.getY()) * (v3.getX() - v1.getX());
-            
-            for (int x = minX; x < maxX; x++) {
-            	for (int y = minY; y < maxY; y++) {
-            		double b1 = 
-            				((y - v3.getY()) * (v2.getX() - v3.getX()) + (v2.getY() - v3.getY()) * (v3.getX() - x)) / triangleArea;
-            		double b2 =
-            				((y - v1.getY()) * (v3.getX() - v1.getX()) + (v3.getY() - v1.getY()) * (v1.getX() - x)) / triangleArea;
-            		double b3 =
-            				((y - v2.getY()) * (v1.getX() - v2.getX()) + (v1.getY() - v2.getY()) * (v2.getX() - x)) / triangleArea;
-            		if (b1 >= 0 && b1 <= 1 && b2 >= 0 && b2 <= 1 && b3 >= 0 && b3 <= 1) {
-            			
-            			double depth = b1 * v1.getZ() + b2 * v2.getZ() + b3 * v3.getZ();
-            			if(depth > zBuffer[y][x]) {
-            				
-            				zBuffer[y][x] = depth;
-            				
-            				Color temp = tris.get(i).getColor();
-            				
-            				double redLin = Math.pow(temp.getRed(), 2.4) * shade;
-            				double greenLin = Math.pow(temp.getGreen(), 2.4) * shade;
-            				double blueLin = Math.pow(temp.getBlue(), 2.4) * shade;
-            				
-            				double red = Math.pow(redLin, 1/2.4);
-            				double green = Math.pow(greenLin, 1/2.4);
-            				double blue =  Math.pow(blueLin, 1/2.4);
-            				
-            				pw.setColor(x, y, new Color(red, green, blue, 1));
-            			}	
-            		}
-            	}	
-            }
-        }
+
+    		v1 = new Point3D(v1.getX() + c.getWidth() / 2, v1.getY() + c.getHeight() / 2, v1.getZ());
+    		v2 = new Point3D(v2.getX() + c.getWidth() / 2, v2.getY() + c.getHeight() / 2, v2.getZ());
+    		v3 = new Point3D(v3.getX() + c.getWidth() / 2, v3.getY() + c.getHeight() / 2, v3.getZ());
+
+    		Point3D v12 = v1.subtract(v2);
+    		Point3D v13 = v1.subtract(v3);
+    		Point3D norm = v12.crossProduct(v13);
+    		norm = norm.normalize();
+    		double shade = Math.abs(norm.getZ());
+
+
+    		int minX = (int)Math.max(0, Math.ceil(Math.min(v1.getX(), Math.min(v2.getX(), v3.getX()))));
+    		int maxX = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getX(), Math.max(v2.getX(), v3.getX()))));
+    		int minY = (int)Math.max(0, Math.ceil(Math.min(v1.getY(), Math.min(v2.getY(), v3.getY()))));
+    		int maxY = (int)Math.min(c.getWidth()-1, Math.floor(Math.max(v1.getY(), Math.max(v2.getY(), v3.getY()))));
+
+    		double triangleArea =
+    				(v1.getY() - v3.getY()) * (v2.getX() - v3.getX()) + (v2.getY() - v3.getY()) * (v3.getX() - v1.getX());
+
+    		for (int x = minX; x < maxX; x++) {
+    			for (int y = minY; y < maxY; y++) {
+    				double b1 = 
+    						((y - v3.getY()) * (v2.getX() - v3.getX()) + (v2.getY() - v3.getY()) * (v3.getX() - x)) / triangleArea;
+    				double b2 =
+    						((y - v1.getY()) * (v3.getX() - v1.getX()) + (v3.getY() - v1.getY()) * (v1.getX() - x)) / triangleArea;
+    				double b3 =
+    						((y - v2.getY()) * (v1.getX() - v2.getX()) + (v1.getY() - v2.getY()) * (v2.getX() - x)) / triangleArea;
+    				if (b1 >= 0 && b1 <= 1 && b2 >= 0 && b2 <= 1 && b3 >= 0 && b3 <= 1) {
+
+    					double depth = b1 * v1.getZ() + b2 * v2.getZ() + b3 * v3.getZ();
+    					if(depth > zBuffer[y][x]) {
+
+    						zBuffer[y][x] = depth;
+
+    						Color temp = tris.get(i).getColor();
+
+    						double redLin = Math.pow(temp.getRed(), 2.4) * shade;
+    						double greenLin = Math.pow(temp.getGreen(), 2.4) * shade;
+    						double blueLin = Math.pow(temp.getBlue(), 2.4) * shade;
+
+    						double red = Math.pow(redLin, 1/2.4);
+    						double green = Math.pow(greenLin, 1/2.4);
+    						double blue =  Math.pow(blueLin, 1/2.4);
+
+    						pw.setColor(x, y, new Color(red, green, blue, 1));
+    					}	
+    				}
+    			}	
+    		}
+    	}
         gc.drawImage(img, 0, 0);
     }
 
