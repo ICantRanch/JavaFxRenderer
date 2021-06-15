@@ -151,7 +151,7 @@ public class RenderMain extends Application {
                 Color.MEDIUMBLUE));
         
         //Inflation
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 2; i++) {
 			tris = (ArrayList<Triangle>) inflate(tris);
 		}
         
