@@ -12,11 +12,12 @@ import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.*;
 import javafx.scene.transform.Rotate;
 import javafx.stage.Stage;
+import javafx.util.Pair;
 
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 
 public class RenderMain extends Application {
 
@@ -39,6 +40,8 @@ public class RenderMain extends Application {
     boolean momTimer = false;
     Rotate hRotate = new Rotate(0, new javafx.geometry.Point3D(0,1,0));
     Rotate pRotate = new Rotate(0,new javafx.geometry.Point3D(1,0,0));
+    
+    Queue<Pair<Double,Double>> moms = new ArrayBlockingQueue<>(5);
 
     ArrayList<Triangle> tris;
     WritableImage img;
@@ -88,6 +91,9 @@ public class RenderMain extends Application {
         	
         	mousePrevX = m.getSceneX();
         	mousePrevY = m.getSceneY();
+        	
+        	moms.clear();
+        	
         	if(momTimer) {
         		tm.cancel();
         	}
@@ -97,12 +103,26 @@ public class RenderMain extends Application {
         	momX = (m.getSceneX()-mousePrevX)*(360/scene.getWidth());
         	momY = -(m.getSceneY()-mousePrevY)*(360/scene.getHeight());
         	paintInc(momX , momY);
+        	
+        	if(moms.size() >= 5) {
+        		moms.remove();
+        	}
+        	moms.add(new Pair<Double, Double>(momX,momY));
+        	
         	mousePrevX = m.getSceneX();
         	mousePrevY = m.getSceneY();
         });
         c.setOnMouseReleased(m->{
         	
-        	System.out.println("Exited");
+        	double sumX = 0, sumY = 0;
+        	
+        	for (Pair<Double, Double> pair : moms) {
+				sumX += pair.getKey();
+				sumY += pair.getValue();
+			}
+        	momX = sumX/moms.size();
+        	momY = sumY/moms.size();
+        	
         	rotateMom(0.96);
         });
         
