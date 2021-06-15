@@ -41,7 +41,7 @@ public class RenderMain extends Application {
     Rotate hRotate = new Rotate(0, new javafx.geometry.Point3D(0,1,0));
     Rotate pRotate = new Rotate(0,new javafx.geometry.Point3D(1,0,0));
     
-    Queue<Pair<Double,Double>> moms = new ArrayBlockingQueue<>(5);
+    ArrayBlockingQueue<Pair<Double,Double>> moms = new ArrayBlockingQueue<>(5);
 
     ArrayList<Triangle> tris;
     WritableImage img;
@@ -92,6 +92,8 @@ public class RenderMain extends Application {
         	mousePrevX = m.getSceneX();
         	mousePrevY = m.getSceneY();
         	
+        	momX = 0;
+        	momY = 0;
         	moms.clear();
         	
         	if(momTimer) {
@@ -104,7 +106,7 @@ public class RenderMain extends Application {
         	momY = -(m.getSceneY()-mousePrevY)*(360/scene.getHeight());
         	paintInc(momX , momY);
         	
-        	if(moms.size() >= 5) {
+        	if(moms.remainingCapacity() < 1) {
         		moms.remove();
         	}
         	moms.add(new Pair<Double, Double>(momX,momY));
@@ -116,14 +118,16 @@ public class RenderMain extends Application {
         	
         	double sumX = 0, sumY = 0;
         	
+        	if(moms.size() > 0) {
+        	
         	for (Pair<Double, Double> pair : moms) {
 				sumX += pair.getKey();
 				sumY += pair.getValue();
 			}
         	momX = sumX/moms.size();
         	momY = sumY/moms.size();
-        	
         	rotateMom(0.96);
+        	}
         });
         
 
@@ -147,7 +151,7 @@ public class RenderMain extends Application {
                 Color.MEDIUMBLUE));
         
         //Inflation
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 2; i++) {
 			tris = (ArrayList<Triangle>) inflate(tris);
 		}
         
